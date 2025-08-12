@@ -20,7 +20,6 @@ variable "sql" {
     threat_detection_email  = optional(string)
     diag_log_analytics_id   = optional(string) # if sending diagnostics
   })
-  sensitive = true
 }
 
 variable "dns" {

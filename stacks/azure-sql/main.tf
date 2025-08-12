@@ -14,10 +14,13 @@ data "azurerm_subnet" "pe_subnet" {
 }
 
 module "sql" {
-  source = "git::https://example.com/your-org/cmn-ref-tf-azure-sql-module.git//modules/sql?ref=v1.0.0"
+  #source = "git::https://example.com/your-org/cmn-ref-tf-azure-sql-module.git//modules/sql?ref=v1.0.0"  
+  source = "../../../cmn-ref-tf-azure-sql-module/modules/sql"
 
   location               = var.location
   resource_group_name    = data.azurerm_resource_group.rg.name
+
+  tenant_id              = var.tenant_id
 
   server_name            = var.sql.server_name
   administrator_login    = var.sql.admin_login
@@ -39,7 +42,8 @@ module "sql" {
 
 # Option A: Let the PE module create/own the zone (simple for greenfield)
 module "sql_private_endpoint" {
-  source = "git::https://example.com/your-org/cmn-ref-tf-private-endpoint-module.git//modules/private_endpoint?ref=v1.0.0"
+# source = "git::https://example.com/your-org/cmn-ref-tf-private-endpoint-module.git//modules/private_endpoint?ref=v1.0.0"
+  source = "../../../cmn-ref-tf-private-endpoint-module/modules/private_endpoint"
 
   name                 = "${module.sql.sql_server_name}-pe"
   resource_group_name  = data.azurerm_resource_group.rg.name
