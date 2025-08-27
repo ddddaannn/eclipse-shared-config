@@ -1,0 +1,67 @@
+name: Terraform Plan (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      env_name:
+        description: "Environment (matches a .tfvars file in ./env)"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  # id-token: write   # not required when using client secret, OK to leave commented
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate tfvars exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          TFVARS="env/${{ github.event.inputs.env_name }}.tfvars"
+          test -f "$TFVARS" || { echo "Missing $TFVARS"; exit 1; }
+
+      - name: Parse tfvars for Azure IDs
+        id: parse
+        shell: bash
+        env:
+          ENV_NAME: ${{ github.event.inputs.env_name }}
+        run: |
+          set -euo pipefail
+          TFVARS="env/${ENV_NAME}.tfvars"
+
+          read_kv() { grep -E "^$1\s*=" "$TFVARS" | awk -F'=' '{print $2}' | tr -d ' "'; }
+
+          TENANT_ID=$(read_kv tenant_id)
+          SUBSCRIPTION_ID=$(read_kv subscription_id)
+          CLIENT_ID=$(read_kv client_id)
+
+          echo "tenant_id=$TENANT_ID"             >> "$GITHUB_OUTPUT"
+          echo "subscription_id=$SUBSCRIPTION_ID" >> "$GITHUB_OUTPUT"
+          echo "client_id=$CLIENT_ID"             >> "$GITHUB_OUTPUT"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          tenant-id:       ${{ steps.parse.outputs.tenant_id }}
+          subscription-id: ${{ steps.parse.outputs.subscription_id }}
+          client-id:       ${{ steps.parse.outputs.client_id }}
+          client-secret:   ${{ secrets.ARM_CLIENT_SECRET }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Make scripts executable
+        run: chmod +x ./scripts/*.sh
+
+      - name: Terraform Plan
+        env:
+          ENV_NAME: ${{ github.event.inputs.env_name }}
+        run: ./scripts/plan.sh "$ENV_NAME"
